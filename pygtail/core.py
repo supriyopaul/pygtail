@@ -73,7 +73,8 @@ class Pygtail(object):
         self._since_update = 0
         self._fh = None
         self._rotated_logfile = None
-
+        self._nlines_read = 0
+        self._nlines_acknowledged = 0
         # if offset file exists and non-empty, open and parse it
         if exists(self._offset_file) and getsize(self._offset_file):
             offset_fh = open(self._offset_file, "r")
@@ -112,18 +113,20 @@ class Pygtail(object):
                 try:
                     line = self._get_next_line()
                 except StopIteration:  # oops, empty file
-                    self._update_offset_file()
                     raise
             else:
-                self._update_offset_file()
                 raise
 
         if self.paranoid:
-            self._update_offset_file()
+            pass
         elif self.every_n and self.every_n <= self._since_update:
-            self._update_offset_file()
+            pass
 
-        return line
+        offset = self._filehandle().tell()
+        inode = stat(self.filename).st_ino
+
+        self._nlines_read += 1
+        return dict(line=line, file=self.filename, inode=inode, offset=offset)
 
     def __next__(self):
         """`__next__` is the Python 3 version of `next`"""
@@ -175,18 +178,30 @@ class Pygtail(object):
 
         return self._fh
 
-    def _update_offset_file(self):
+    def _update_offset_file(self, offset=None, inode=None):
         """
         Update the offset file with the current inode and offset.
         """
         if self.on_update:
             self.on_update()
-        offset = self._filehandle().tell()
-        inode = stat(self.filename).st_ino
+
+        if offset is None:
+            offset = self._filehandle().tell()
+
+        if inode is None:
+            inode = stat(self.filename).st_ino
+
         fh = open(self._offset_file, "w")
         fh.write("%s\n%s\n" % (inode, offset))
         fh.close()
         self._since_update = 0
+
+    def update_offset_file(self, line_info):
+        self._update_offset_file(offset=line_info['offset'], inode=line_info['inode'])
+        self._nlines_acknowledged += 1
+
+    def is_fully_acknowledged(self):
+        return self._nlines_read == self._nlines_acknowledged
 
     def _determine_rotated_logfile(self):
         """
