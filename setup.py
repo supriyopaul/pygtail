@@ -10,17 +10,17 @@ def main():
     readme = open(path, 'r').read()
 
     setup(
-        name = 'pygtail-logagg',
+        name = 'pygtaillogagg',
         version = __version__,
         description = 'Reads log file lines that have not been read.',
         license = 'GPL v2',
         author = 'Brad Greenlee',
         author_email = 'brad@footle.org',
         keywords = ['logging', 'tail', 'logtail2'],
-        url = 'http://github.com/bgreenlee/pygtail',
-        packages = ['pygtail'],
+        url = 'http://github.com/deepcompute/pygtail',
+        packages = ['pygtaillogagg'],
         entry_points = {
-            'console_scripts': ['pygtail=pygtail.core:main']
+            'console_scripts': ['pygtaillogagg=pygtaillogagg.core:main']
             },
         test_suite='pygtail.test',
         classifiers = [
