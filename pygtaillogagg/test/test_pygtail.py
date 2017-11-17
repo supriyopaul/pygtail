@@ -9,7 +9,7 @@ import shutil
 import tempfile
 import gzip
 import io
-from pygtail import Pygtail
+from pygtaillogagg import Pygtail
 
 PY2 = sys.version_info[0] == 2
 

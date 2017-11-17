@@ -1,2 +1,2 @@
-from pygtail.core import __version__
-from pygtail.core import Pygtail
+from pygtaillogagg.core import __version__
+from pygtaillogagg.core import Pygtail
