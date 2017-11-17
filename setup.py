@@ -10,7 +10,7 @@ def main():
     readme = open(path, 'r').read()
 
     setup(
-        name = 'pygtail',
+        name = 'pygtail-logagg',
         version = __version__,
         description = 'Reads log file lines that have not been read.',
         license = 'GPL v2',

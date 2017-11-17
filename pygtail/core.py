@@ -72,6 +72,7 @@ class Pygtail(object):
         self._offset = 0
         self._since_update = 0
         self._fh = None
+        self._inode = None
         self._rotated_logfile = None
         self._nlines_read = 0
         self._nlines_acknowledged = 0
@@ -123,7 +124,7 @@ class Pygtail(object):
             pass
 
         offset = self._filehandle().tell()
-        inode = stat(self.filename).st_ino
+        inode = self._inode
 
         self._nlines_read += 1
         return dict(line=line, file=self.filename, inode=inode, offset=offset)
@@ -174,6 +175,7 @@ class Pygtail(object):
                 self._fh = gzip.open(filename, 'r')
             else:
                 self._fh = open(filename, "r", 1)
+            self._inode = stat(filename).st_ino
             self._fh.seek(self._offset)
 
         return self._fh
