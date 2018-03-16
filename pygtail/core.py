@@ -73,8 +73,9 @@ class Pygtail(object):
         self._since_update = 0
         self._fh = None
         self._rotated_logfile = None
-        self._nlines_read = 0
-        self._nlines_acknowledged = 0
+        self._offset_read = 0
+        self._offset_acked = 0
+
         # if offset file exists and non-empty, open and parse it
         if exists(self._offset_file) and getsize(self._offset_file):
             offset_fh = open(self._offset_file, "r")
@@ -125,7 +126,7 @@ class Pygtail(object):
         offset = self._filehandle().tell()
         inode = stat(self.filename).st_ino
 
-        self._nlines_read += 1
+        self._offset_read = offset
         return dict(line=line, file=self.filename, inode=inode, offset=offset)
 
     def __next__(self):
@@ -197,11 +198,12 @@ class Pygtail(object):
         self._since_update = 0
 
     def update_offset_file(self, line_info):
-        self._update_offset_file(offset=line_info['offset'], inode=line_info['inode'])
-        self._nlines_acknowledged += 1
+        offset = line_info['offset']
+        self._update_offset_file(offset=offset, inode=line_info['inode'])
+        self._offset_acked = offset
 
     def is_fully_acknowledged(self):
-        return self._nlines_read == self._nlines_acknowledged
+        return self._offset_read == self._offset_acked
 
     def _determine_rotated_logfile(self):
         """
@@ -231,37 +233,43 @@ class Pygtail(object):
         Check for various rotated logfile filename patterns and return the first
         match we find.
         """
+        fpath = self.filename
+        fname, ext = fpath.rsplit('.', 1)
+
         # savelog(8)
-        candidate = "%s.0" % self.filename
-        if (exists(candidate) and exists("%s.1.gz" % self.filename) and
-            (stat(candidate).st_mtime > stat("%s.1.gz" % self.filename).st_mtime)):
+        candidate = "%s.0" % fpath
+        if (exists(candidate) and exists("%s.1.gz" % fpath) and
+            (stat(candidate).st_mtime > stat("%s.1.gz" % fpath).st_mtime)):
             return candidate
 
         # logrotate(8)
         # with delaycompress
-        candidate = "%s.1" % self.filename
+        candidate = "%s.1" % fpath
         if exists(candidate):
             return candidate
 
         # without delaycompress
-        candidate = "%s.1.gz" % self.filename
+        candidate = "%s.1.gz" % fpath
         if exists(candidate):
             return candidate
 
         rotated_filename_patterns = (
             # logrotate dateext rotation scheme - `dateformat -%Y%m%d` + with `delaycompress`
-            "-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]",
+            "%(fpath)s-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]",
             # logrotate dateext rotation scheme - `dateformat -%Y%m%d` + without `delaycompress`
-            "-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].gz",
+            "%(fpath)s-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].gz",
             # logrotate dateext rotation scheme - `dateformat -%Y%m%d-%s` + with `delaycompress`
-            "-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]",
+            "%(fpath)s-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]",
             # logrotate dateext rotation scheme - `dateformat -%Y%m%d-%s` + without `delaycompress`
-            "-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].gz",
+            "%(fpath)s-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].gz",
             # for TimedRotatingFileHandler
-            ".[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]",
+            "%(fpath)s.[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]",
+            # for lumberjack (serverstats_test-2018-03-16T08-44-30.514.log)
+            r"%(fname)s-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]-[0-9][0-9]-[0-9][0-9].[0-9][0-9][0-9].%(ext)s",
         )
+
         for rotated_filename_pattern in rotated_filename_patterns:
-            candidates = glob.glob(self.filename + rotated_filename_pattern)
+            candidates = glob.glob(rotated_filename_pattern % locals())
             if candidates:
                 candidates.sort()
                 return candidates[-1]  # return most recent
