@@ -129,6 +129,10 @@ class Pygtail(object):
         self._offset_read = offset
         return dict(line=line, file=self.filename, inode=inode, offset=offset)
 
+    def __next__(self):
+        """`__next__` is the Python 3 version of `next`"""
+        return next(self)
+
     def readlines(self):
         """
         Read in all unread lines and return them as a list.
@@ -302,7 +306,7 @@ def main():
     options, args = cmdline.parse_args()
 
     if options.version:
-        print(("pygtail version", __version__))
+        print("pygtail version", __version__)
         sys.exit(0)
 
     if (len(args) != 1):
